@@ -44,11 +44,11 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
-          context: .
+          context: ./n8n
+          file: ./n8n/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/ilinyhgleb/n8n-zrok-share:latest' }}
+          tags: tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
