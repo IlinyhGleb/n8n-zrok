@@ -15,6 +15,9 @@ services:
 
     restart: unless-stopped
 
+    depends_on:
+      - n8n
+
   n8n:
     build:
       context: ./n8n
@@ -37,9 +40,6 @@ services:
       - zrok-n8n
 
     restart: unless-stopped
-
-    depends_on:
-      - zrok
 
 networks:
   zrok-n8n:
