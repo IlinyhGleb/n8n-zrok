@@ -11,23 +11,37 @@ services:
       - ./zrok-shared:/home/ziggy/shared
 
     networks:
-      - zrok-n8n
+      - n8n-zrok
 
     restart: unless-stopped
 
     depends_on:
       - n8n
 
+
   n8n:
     build:
       context: ./n8n
       dockerfile: Dockerfile
+
+    user: "1000:1000"
 
     environment:
       N8N_HOST: n8n
       N8N_PORT: 5678
       N8N_PROTOCOL: http
       N8N_SECURE_COOKIE: "false"
+
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
 
     volumes:
       - ./n8n-data:/home/node/.n8n
@@ -37,9 +51,44 @@ services:
       - "5678:5678"
 
     networks:
-      - zrok-n8n
+      - n8n-zrok
 
     restart: unless-stopped
 
+    depends_on:
+      - postgres
+      - redis
+
+
+  postgres:
+    image: postgres:17
+
+    environment:
+      POSTGRES_DB: n8n
+      POSTGRES_USER: n8n
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    networks:
+      - n8n-zrok
+
+    restart: unless-stopped
+
+
+  redis:
+    image: redis:7
+
+    networks:
+      - n8n-zrok
+
+    restart: unless-stopped
+
+
 networks:
-  zrok-n8n:
+  n8n-zrok:
+
+
+volumes:
+  postgres-data:
