@@ -19,8 +19,8 @@ The zrok container creates a public URL for the n8n instance. The URL is written
                            │ HTTP
                            ▼
                   ┌──────────────────┐
-                  │       n8n         │
-                  │      :5678        │
+                  │       n8n        │
+                  │      :5678       │
                   └────────┬─────────┘
                            │
                     local port 5678
