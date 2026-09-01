@@ -1,0 +1,46 @@
+services:
+  zrok:
+    image: ghcr.io/ilinyhgleb/zrok-share:dev
+
+    environment:
+      ZROK2_TARGET: http://n8n:5678
+      ZROK2_MODE: public
+
+    volumes:
+      - /mnt/apps/configs/n8n-zrok/zrok-config:/home/ziggy/.zrok2:ro
+      - /mnt/apps/configs/n8n-zrok/zrok-shared:/home/ziggy/shared
+
+    networks:
+      - zrok-n8n
+
+    restart: unless-stopped
+
+    depends_on:
+      - n8n
+
+  n8n:
+    image: ghcr.io/ilinyhgleb/n8n-zrok:latest
+
+    user: "1000:1000"
+
+    environment:
+      N8N_HOST: n8n
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_SECURE_COOKIE: "false"
+
+    volumes:
+      - /mnt/apps/configs/n8n-zrok/n8n-data:/home/node/.n8n
+      - /mnt/apps/configs/n8n-zrok/zrok-shared:/shared:ro
+
+    ports:
+      - "5678:5678"
+
+    networks:
+      - zrok-n8n
+
+    restart: unless-stopped
+
+networks:
+  zrok-n8n:
+
