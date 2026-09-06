@@ -2,6 +2,10 @@
 
 set -eu
 
+if [ "${1:-start}" = "worker" ]; then
+    exec n8n worker
+fi
+
 ZROK_URL_FILE="/shared/zrok-url"
 
 echo "Waiting for zrok URL..."
@@ -22,4 +26,4 @@ echo "Using zrok URL: $ZROK_URL"
 export N8N_EDITOR_BASE_URL="$ZROK_URL"
 export N8N_WEBHOOK_URL="$ZROK_URL"
 
-exec n8n start
+exec n8n "$@"
