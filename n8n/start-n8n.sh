@@ -1,6 +1,9 @@
 #!/bin/sh
 
-set -eu
+set -eaux
+
+echo "ARGV: $#"
+printf 'ARG[%s]=<%s>\n' "$#" "$@"
 
 if [ "${1:-start}" = "worker" ]; then
     echo "Starting n8n worker..."
