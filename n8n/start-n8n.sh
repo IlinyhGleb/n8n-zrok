@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -eaux
+set -eux
 
 echo "ARGV: $#"
 printf 'ARG[%s]=<%s>\n' "$#" "$@"
