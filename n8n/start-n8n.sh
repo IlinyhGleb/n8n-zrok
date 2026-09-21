@@ -3,6 +3,7 @@
 set -eu
 
 if [ "${1:-start}" = "worker" ]; then
+    echo "Starting n8n worker..."
     exec n8n worker
 fi
 
@@ -26,4 +27,4 @@ echo "Using zrok URL: $ZROK_URL"
 export N8N_EDITOR_BASE_URL="$ZROK_URL"
 export N8N_WEBHOOK_URL="$ZROK_URL"
 
-exec n8n "$@"
+exec n8n start
