@@ -54,7 +54,7 @@ services:
 
     volumes:
       - ./n8n-data:/home/node/.n8n
-      - ./zrok-shared:/shared:ro
+      - ./zrok-shared:/home/node/.n8n-files:ro
 
     ports:
       - "5678:5678"
@@ -109,7 +109,7 @@ services:
 
     volumes:
       - ./n8n-data:/home/node/.n8n
-      - ./zrok-shared:/shared:ro
+      - ./zrok-shared:/home/node/.n8n-files:ro
 
     networks:
       - n8n-zrok

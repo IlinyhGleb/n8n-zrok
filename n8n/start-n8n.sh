@@ -1,16 +1,13 @@
 #!/bin/sh
 
-set -eux
-
-echo "ARGV: $#"
-printf 'ARG[%s]=<%s>\n' "$#" "$@"
+set -u
 
 if [ "${1:-start}" = "worker" ]; then
     echo "Starting n8n worker..."
     exec n8n worker
 fi
 
-ZROK_URL_FILE="/shared/zrok-url"
+ZROK_URL_FILE="/home/node/.n8n-files/zrok-url"
 
 echo "Waiting for zrok URL..."
 
