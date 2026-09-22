@@ -505,7 +505,10 @@ Recommended directory structure:
 ├── n8n-data/
 ├── postgres-data/
 ├── zrok-config/
-└── zrok-shared/
+├── zrok-shared/
+└── secrets/
+    ├── db_password
+    └── n8n_encryption_key
 ```
 
 The mounts are:
@@ -535,6 +538,33 @@ The zrok shared directory must be writable by the user used by the zrok image.
 The n8n container mounts the shared directory read-only because it only needs to read the generated URL.
 
 PostgreSQL uses a dedicated TrueNAS dataset so that its database is persistent and can be included in the TrueNAS backup strategy.
+
+The `secrets` directory contains sensitive credentials and should also be included in the backup strategy.
+
+The secrets are mounted into the containers as:
+
+```text
+/mnt/apps/configs/n8n-zrok/secrets/db_password
+        ↓
+/run/secrets/db_password
+
+/mnt/apps/configs/n8n-zrok/secrets/n8n_encryption_key
+        ↓
+/run/secrets/n8n_encryption_key
+```
+
+The n8n and n8n-worker services use:
+
+```yaml
+DB_POSTGRESDB_PASSWORD_FILE: /run/secrets/db_password
+N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+```
+
+PostgreSQL uses:
+
+```yaml
+POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+```
 
 ### TrueNAS networking
 
@@ -597,6 +627,36 @@ The n8n data directory should not use `777` permissions.
 The zrok configuration must be readable by the user running the zrok container, while `zrok-shared` must be writable by zrok.
 
 The exact UID/GID used by the zrok image should be verified before configuring the corresponding TrueNAS permissions.
+
+The secrets are read by the n8n and n8n-worker containers as UID/GID `1000:1000`. Configure the secrets with restricted permissions:
+
+```bash
+sudo chown 1000:1000 /mnt/apps/configs/n8n-zrok/secrets/db_password
+sudo chown 1000:1000 /mnt/apps/configs/n8n-zrok/secrets/n8n_encryption_key
+
+sudo chmod 600 /mnt/apps/configs/n8n-zrok/secrets/db_password
+sudo chmod 600 /mnt/apps/configs/n8n-zrok/secrets/n8n_encryption_key
+
+sudo chmod 700 /mnt/apps/configs/n8n-zrok/secrets
+```
+
+The resulting permissions should be approximately:
+
+```text
+drwx------  secrets/
+-rw-------  db_password
+-rw-------  n8n_encryption_key
+```
+
+The n8n data directory can be configured with:
+
+```bash
+sudo chown -R 1000:1000 /mnt/apps/configs/n8n-zrok/n8n-data
+```
+
+The zrok shared directory must be writable by the zrok container. Configure its ownership according to the UID/GID used by the `zrok-share` image.
+
+Do not use `777` permissions for the n8n data or secrets directories.
 
 ## GitHub Actions
 

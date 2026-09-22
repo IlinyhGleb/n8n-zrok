@@ -1,3 +1,4 @@
+```yaml
 services:
   zrok:
     image: ghcr.io/ilinyhgleb/zrok-share:dev
@@ -16,7 +17,8 @@ services:
     restart: unless-stopped
 
     depends_on:
-      - n8n
+      n8n:
+        condition: service_healthy
 
 
   n8n:
@@ -40,8 +42,15 @@ services:
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
 
       EXECUTIONS_MODE: queue
+      OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: "true"
       QUEUE_BULL_REDIS_HOST: redis
       QUEUE_BULL_REDIS_PORT: 6379
+      N8N_CONCURRENCY_PRODUCTION_LIMIT: 20
+
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Yekaterinburg}
+      TZ: ${GENERIC_TIMEZONE:-Asia/Yekaterinburg}
 
     volumes:
       - ./n8n-data:/home/node/.n8n
@@ -56,8 +65,66 @@ services:
     restart: unless-stopped
 
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+
+  n8n-worker:
+    build:
+      context: ./n8n
+      dockerfile: Dockerfile
+
+    command: worker
+
+    user: "1000:1000"
+
+    environment:
+      QUEUE_HEALTH_CHECK_ACTIVE: "true"
+
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      N8N_CONCURRENCY_PRODUCTION_LIMIT: 20
+
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Yekaterinburg}
+      TZ: ${GENERIC_TIMEZONE:-Asia/Yekaterinburg}
+
+    volumes:
+      - ./n8n-data:/home/node/.n8n
+      - ./zrok-shared:/shared:ro
+
+    networks:
+      - n8n-zrok
+
+    restart: unless-stopped
+
+    depends_on:
+      n8n:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/node", "-e", "process.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
 
 
   postgres:
@@ -76,6 +143,17 @@ services:
 
     restart: unless-stopped
 
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -h 127.0.0.1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 
   redis:
     image: redis:7
@@ -85,6 +163,13 @@ services:
 
     restart: unless-stopped
 
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
 
 networks:
   n8n-zrok:
@@ -92,3 +177,4 @@ networks:
 
 volumes:
   postgres-data:
+```

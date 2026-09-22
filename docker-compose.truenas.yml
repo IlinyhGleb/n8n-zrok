@@ -1,88 +1,184 @@
+
+secrets:
+  db_password:
+    file: /mnt/apps/configs/n8n-zrok/secrets/db_password
+  n8n_encryption_key:
+    file: /mnt/apps/configs/n8n-zrok/secrets/n8n_encryption_key
+
+
+volumes:
+  postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/apps/configs/n8n-zrok/postgres-data
+
+  n8n-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/apps/configs/n8n-zrok/n8n-data
+
+  zrok-config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/apps/configs/n8n-zrok/zrok-config
+
+  zrok-shared:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/apps/configs/n8n-zrok/zrok-shared
+
+
+networks:
+  n8n-zrok: Null
+
+
 services:
-  zrok:
-    image: ghcr.io/ilinyhgleb/zrok-share:dev
-
-    environment:
-      ZROK2_TARGET: http://n8n:5678
-      ZROK2_MODE: public
-
-    volumes:
-      - /mnt/apps/configs/n8n-zrok/zrok-config:/home/ziggy/.zrok2:ro
-      - /mnt/apps/configs/n8n-zrok/zrok-shared:/home/ziggy/shared
-
-    networks:
-      - n8n-zrok
-
-    restart: unless-stopped
-
-    depends_on:
-      - n8n
-
   n8n:
     image: ghcr.io/ilinyhgleb/n8n-zrok:latest
-
-    user: "1000:1000"
-
+    restart: unless-stopped
     environment:
       N8N_HOST: n8n
       N8N_PORT: 5678
       N8N_PROTOCOL: http
-      N8N_SECURE_COOKIE: "false"
+      N8N_SECURE_COOKIE: 'false'
+      N8N_RUNNERS_MODE: external
+      N8N_NATIVE_PYTHON_RUNNER: true
 
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
       DB_POSTGRESDB_DATABASE: n8n
       DB_POSTGRESDB_USER: n8n
-      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_PASSWORD_FILE: /run/secrets/db_password
 
       EXECUTIONS_MODE: queue
+      OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: 'true'
       QUEUE_BULL_REDIS_HOST: redis
       QUEUE_BULL_REDIS_PORT: 6379
+      N8N_CONCURRENCY_PRODUCTION_LIMIT: 20
 
-    volumes:
-      - /mnt/apps/configs/n8n-zrok/n8n-data:/home/node/.n8n
-      - /mnt/apps/configs/n8n-zrok/zrok-shared:/shared:ro
+      N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+
+      GENERIC_TIMEZONE: Asia/Yekaterinburg
+      TZ: Asia/Yekaterinburg
+
+      HTTPS_PROXY: http://192.168.1.5:8118
+      HTTP_PROXY: http://192.168.1.5:8118
 
     ports:
-      - "5678:5678"
-
+      - '5678:5678'
+    user: '1000:1000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - zrok-shared:/shared:ro
     networks:
       - n8n-zrok
+    secrets:
+      - n8n_encryption_key
+      - db_password
 
+
+  n8n-worker:
+    image: ghcr.io/ilinyhgleb/n8n-zrok:latest
+    command: worker
     restart: unless-stopped
+    environment:
+      QUEUE_HEALTH_CHECK_ACTIVE: 'true'
 
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD_FILE: /run/secrets/db_password
+
+      EXECUTIONS_MODE: queue
+      OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: true
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      N8N_CONCURRENCY_PRODUCTION_LIMIT: 20
+
+      N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+
+      GENERIC_TIMEZONE: Asia/Yekaterinburg
+      TZ: Asia/Yekaterinburg
+
+      HTTPS_PROXY: http://192.168.1.5:8118
+      HTTP_PROXY: http://192.168.1.5:8118
+
+    user: '1000:1000'
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - zrok-shared:/shared:ro
+    networks:
+      - n8n-zrok
+    secrets:
+      - n8n_encryption_key
+      - db_password
 
 
   postgres:
     image: postgres:17
-
+    restart: unless-stopped
     environment:
       POSTGRES_DB: n8n
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_USER: n8n
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
     volumes:
-      - /mnt/apps/configs/n8n-zrok/postgres-data:/var/lib/postgresql/data
-
+      - postgres-data:/var/lib/postgresql/data
     networks:
       - n8n-zrok
-
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    secrets:
+      - db_password
 
 
   redis:
     image: redis:7
-
+    restart: unless-stopped
     networks:
       - n8n-zrok
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
+
+  zrok:
+    image: ghcr.io/ilinyhgleb/zrok-share:dev
     restart: unless-stopped
-
-
-networks:
-  n8n-zrok:
-
+    environment:
+      ZROK2_MODE: public
+      ZROK2_TARGET: http://n8n:5678
+    depends_on:
+      - n8n
+    networks:
+      - n8n-zrok
+    volumes:
+      - zrok-config:/home/ziggy/.zrok2:ro
+      - zrok-shared:/home/ziggy/shared
