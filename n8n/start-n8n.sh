@@ -26,5 +26,6 @@ echo "Using zrok URL: $ZROK_URL"
 
 export N8N_EDITOR_BASE_URL="$ZROK_URL"
 export N8N_WEBHOOK_URL="$ZROK_URL"
+export N8N_HOST="${ZROK_URL#*://}"  # remove https
 
 exec n8n start
