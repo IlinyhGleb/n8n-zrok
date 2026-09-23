@@ -8,11 +8,12 @@ if [ "${1:-start}" = "worker" ]; then
 fi
 
 ZROK_URL_FILE="/home/node/.n8n-files/zrok-url"
+ZROK_HOST_FILE="/home/node/.n8n-files/zrok-host"
 
 echo "Waiting for zrok URL..."
 
 while [ ! -s "$ZROK_URL_FILE" ]; do
-    sleep 1
+    sleep 10
 done
 
 ZROK_URL="$(cat "$ZROK_URL_FILE")"
@@ -24,8 +25,13 @@ fi
 
 echo "Using zrok URL: $ZROK_URL"
 
+ZROK_HOST="${ZROK_URL#*://}"  # remove https
+
+# Write the host (without protocol) for other consumers
+echo "$ZROK_HOST" > "$ZROK_HOST_FILE"
+
 export N8N_EDITOR_BASE_URL="$ZROK_URL"
 export N8N_WEBHOOK_URL="$ZROK_URL"
-export N8N_HOST="${ZROK_URL#*://}"  # remove https
+export N8N_HOST="$ZROK_HOST"
 
 exec n8n start
